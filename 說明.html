@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yt2mp3 圖解手冊</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #F2F4F6;
+    --panel: #FFFFFF;
+    --panel-2: #E9ECF0;
+    --ink: #161C24;
+    --ink-2: #5A6573;
+    --line: #D3D9E0;
+    --accent: #E9962A;
+    --accent-ink: #8A4E06;
+    --good: #3CA96A;
+    --warn: #E9B62A;
+    --bad: #D9503E;
+    --yt: #E53935;
+    --font-display: "Fredoka", "Noto Sans TC", system-ui, sans-serif;
+    --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+    --font-mono: "DM Mono", ui-monospace, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #11161C; --panel: #1A2029; --panel-2: #232B36;
+      --ink: #E8ECF0; --ink-2: #9AA6B4; --line: #303A47;
+      --accent: #F2A63C; --accent-ink: #FFD08A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #11161C; --panel: #1A2029; --panel-2: #232B36;
+    --ink: #E8ECF0; --ink-2: #9AA6B4; --line: #303A47;
+    --accent: #F2A63C; --accent-ink: #FFD08A;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--ground); color: var(--ink);
+    font-family: var(--font-body); font-size: 17px; line-height: 1.7;
+    padding-inline: clamp(16px, 4vw, 40px); padding-block: 0 80px;
+  }
+  .wrap { max-width: 880px; margin-inline: auto; }
+  h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.15; margin: 0; }
+  h1 { font-size: clamp(38px, 7vw, 64px); font-weight: 700; letter-spacing: -0.01em; }
+  h2 { font-size: clamp(26px, 4vw, 36px); font-weight: 600; }
+  h3 { font-size: 20px; font-weight: 600; }
+  p { margin: 0; max-width: 34em; }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent-ink); margin-bottom: 8px;
+  }
+  code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
+  code { background: var(--panel-2); padding: 2px 7px; border-radius: 5px; }
+  pre {
+    font-family: var(--font-mono); font-size: 14px; line-height: 1.6; margin: 0;
+    background: var(--ink); color: var(--ground); padding: 14px 18px; border-radius: 10px; overflow-x: auto;
+  }
+  :root[data-theme="dark"] pre { background: #0B0F14; color: #E8ECF0; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) pre { background: #0B0F14; color: #E8ECF0; } }
+
+  /* hero */
+  .hero { padding-block: 56px 32px; display: grid; gap: 20px; }
+  .hero p { font-size: 20px; color: var(--ink-2); }
+  .hero svg { width: 100%; max-width: 760px; height: auto; display: block; }
+
+  section { padding-block: 44px; border-top: 1px solid var(--line); }
+  .sec-head { margin-bottom: 24px; }
+  .sec-head p { color: var(--ink-2); margin-top: 8px; }
+
+  /* picture + words */
+  .pic { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: center; }
+  @media (min-width: 680px) { .pic { grid-template-columns: 1.15fr 1fr; gap: 36px; } .pic.flip > figure { order: 2; } }
+  figure { margin: 0; background: var(--panel); border-radius: 18px; padding: 18px; }
+  figure svg { width: 100%; height: auto; display: block; }
+  .words { display: grid; gap: 10px; }
+  .big { font-size: 22px; font-weight: 700; line-height: 1.4; }
+
+  /* three promises */
+  .trio { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+  .trio > div { background: var(--panel); border-radius: 18px; padding: 22px 20px; display: grid; gap: 8px; }
+  .trio svg { width: 96px; height: 96px; display: block; margin-bottom: 6px; }
+  .trio h3 { font-size: 22px; }
+  .trio p { color: var(--ink-2); font-size: 16px; }
+
+  /* steps */
+  .steps { display: grid; gap: 14px; }
+  .step { display: grid; grid-template-columns: 64px 1fr; gap: 16px; align-items: start; background: var(--panel); border-radius: 18px; padding: 18px 20px 18px 18px; }
+  .step .n { font-family: var(--font-display); font-size: 34px; font-weight: 700; color: var(--accent); line-height: 1; padding-top: 2px; text-align: center; }
+  .step .body { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: center; }
+  @media (min-width: 620px) { .step .body { grid-template-columns: 1fr 190px; } }
+  .step svg { width: 100%; max-width: 190px; height: auto; justify-self: end; }
+  .step h3 { margin-bottom: 4px; }
+  .step p { color: var(--ink-2); font-size: 16px; }
+
+  /* usage */
+  .ways { display: grid; gap: 14px; }
+  .way { background: var(--panel); border-radius: 18px; padding: 20px 22px; display: grid; gap: 10px; }
+  .way .tag { font-family: var(--font-display); font-size: 13px; font-weight: 600; letter-spacing: 0.06em; color: var(--accent-ink); }
+  .opts { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .opts td { padding: 8px 4px; border-top: 1px solid var(--line); vertical-align: top; }
+  .opts td:first-child { white-space: nowrap; padding-right: 18px; }
+
+  /* parts */
+  .parts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+  .part { background: var(--panel); border-radius: 18px; padding: 18px; display: grid; gap: 4px; }
+  .part svg { width: 56px; height: 56px; margin-bottom: 8px; }
+  .part b { font-family: var(--font-display); font-size: 19px; font-weight: 600; }
+  .part span { color: var(--ink-2); font-size: 15px; }
+
+  .note { border-left: 4px solid var(--accent); background: var(--panel); padding: 14px 18px; border-radius: 0 14px 14px 0; }
+  .note b { display: block; margin-bottom: 4px; }
+  .nums { font-variant-numeric: tabular-nums; }
+  footer { padding-top: 32px; color: var(--ink-2); font-size: 14px; }
+  @media (prefers-reduced-motion: no-preference) {
+    .needle { transform-origin: 160px 150px; animation: swing 4s ease-in-out infinite alternate; }
+    @keyframes swing { from { transform: rotate(-4deg);} to { transform: rotate(4deg);} }
+  }
+</style>
+</head>
+<body style="margin:0">
+
+<div class="wrap">
+
+<header class="hero">
+  <div>
+    <div class="eyebrow">E:\DownLoadYT · yt2mp3</div>
+    <h1>把 YouTube 變成一樣大聲的 MP3</h1>
+  </div>
+  <p>貼一個網址進去，出來一個 320 kbps、音量固定在 97、名字整齊的 MP3。就這樣。</p>
+
+  <svg viewBox="0 0 760 200" role="img" aria-label="YouTube 影片經過機器變成 MP3">
+    <!-- youtube -->
+    <rect x="20" y="55" width="150" height="100" rx="18" fill="var(--yt)"/>
+    <polygon points="82,80 82,130 122,105" fill="#fff"/>
+    <text x="95" y="182" text-anchor="middle" font-family="var(--font-display)" font-size="16" fill="var(--ink-2)">YouTube 影片</text>
+    <!-- arrow -->
+    <path d="M185 105 H250" stroke="var(--ink-2)" stroke-width="4" stroke-linecap="round"/>
+    <polygon points="248,95 266,105 248,115" fill="var(--ink-2)"/>
+    <!-- machine -->
+    <rect x="280" y="35" width="200" height="140" rx="20" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
+    <rect x="300" y="55" width="160" height="60" rx="10" fill="var(--panel-2)"/>
+    <!-- meter inside machine -->
+    <path d="M320 105 A60 60 0 0 1 440 105" fill="none" stroke="var(--line)" stroke-width="10"/>
+    <path d="M320 105 A60 60 0 0 1 360 60" fill="none" stroke="var(--good)" stroke-width="10"/>
+    <path d="M360 60 A60 60 0 0 1 410 58" fill="none" stroke="var(--warn)" stroke-width="10"/>
+    <path d="M410 58 A60 60 0 0 1 440 105" fill="none" stroke="var(--bad)" stroke-width="10"/>
+    <line x1="380" y1="105" x2="402" y2="63" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="380" cy="105" r="5" fill="var(--ink)"/>
+    <circle cx="315" cy="150" r="10" fill="var(--accent)"/>
+    <circle cx="345" cy="150" r="10" fill="var(--line)"/>
+    <circle cx="375" cy="150" r="10" fill="var(--line)"/>
+    <text x="440" y="156" text-anchor="middle" font-family="var(--font-mono)" font-size="14" fill="var(--accent-ink)">97 dB</text>
+    <text x="380" y="195" text-anchor="middle" font-family="var(--font-display)" font-size="16" fill="var(--ink-2)">yt2mp3.py</text>
+    <!-- arrow -->
+    <path d="M495 105 H560" stroke="var(--ink-2)" stroke-width="4" stroke-linecap="round"/>
+    <polygon points="558,95 576,105 558,115" fill="var(--ink-2)"/>
+    <!-- mp3 file -->
+    <path d="M600 40 H690 L730 80 V170 a10 10 0 0 1 -10 10 H600 a10 10 0 0 1 -10 -10 V50 a10 10 0 0 1 10 -10 Z" fill="var(--accent)"/>
+    <path d="M690 40 V80 H730" fill="none" stroke="var(--accent-ink)" stroke-width="3" stroke-linejoin="round"/>
+    <text x="660" y="135" text-anchor="middle" font-family="var(--font-display)" font-weight="700" font-size="30" fill="#fff">MP3</text>
+    <text x="660" y="160" text-anchor="middle" font-family="var(--font-mono)" font-size="13" fill="#fff">320 kbps</text>
+    <text x="660" y="195" text-anchor="middle" font-family="var(--font-display)" font-size="16" fill="var(--ink-2)">演唱者 - 曲名.mp3</text>
+  </svg>
+</header>
+
+<!-- 三件事 -->
+<section>
+  <div class="sec-head">
+    <div class="eyebrow">它保證三件事</div>
+    <h2>每一首出來都長一樣</h2>
+  </div>
+  <div class="trio">
+    <div>
+      <svg viewBox="0 0 96 96" aria-hidden="true">
+        <rect x="8" y="48" width="10" height="36" rx="3" fill="var(--line)"/>
+        <rect x="24" y="30" width="10" height="54" rx="3" fill="var(--line)"/>
+        <rect x="40" y="16" width="10" height="68" rx="3" fill="var(--accent)"/>
+        <rect x="56" y="36" width="10" height="48" rx="3" fill="var(--line)"/>
+        <rect x="72" y="52" width="10" height="32" rx="3" fill="var(--line)"/>
+        <circle cx="45" cy="10" r="6" fill="var(--accent)"/>
+      </svg>
+      <h3>拿最好的聲音</h3>
+      <p>YouTube 有好幾條音軌，它永遠挑最高品質的那條（通常是 Opus 約 150 kbps），再壓成 320 kbps MP3。</p>
+    </div>
+    <div>
+      <svg viewBox="0 0 96 96" aria-hidden="true">
+        <line x1="8" y1="34" x2="88" y2="34" stroke="var(--accent)" stroke-width="3" stroke-dasharray="6 5"/>
+        <rect x="12" y="34" width="14" height="50" rx="3" fill="var(--good)"/>
+        <rect x="32" y="34" width="14" height="50" rx="3" fill="var(--good)"/>
+        <rect x="52" y="34" width="14" height="50" rx="3" fill="var(--good)"/>
+        <rect x="72" y="34" width="14" height="50" rx="3" fill="var(--good)"/>
+        <text x="90" y="26" text-anchor="end" font-family="var(--font-mono)" font-size="12" fill="var(--accent-ink)">97</text>
+      </svg>
+      <h3>一樣大聲</h3>
+      <p>每首歌的音量都調到 MP3Gain 讀值 <span class="mono">97.0</span>。放進播放清單不用一直轉音量鈕。</p>
+    </div>
+    <div>
+      <svg viewBox="0 0 96 96" aria-hidden="true">
+        <rect x="10" y="14" width="76" height="16" rx="5" fill="var(--panel-2)"/>
+        <rect x="10" y="40" width="76" height="16" rx="5" fill="var(--panel-2)"/>
+        <rect x="10" y="66" width="76" height="16" rx="5" fill="var(--panel-2)"/>
+        <rect x="16" y="19" width="26" height="6" rx="3" fill="var(--accent)"/><rect x="48" y="19" width="30" height="6" rx="3" fill="var(--ink-2)"/>
+        <rect x="16" y="45" width="20" height="6" rx="3" fill="var(--accent)"/><rect x="42" y="45" width="36" height="6" rx="3" fill="var(--ink-2)"/>
+        <rect x="16" y="71" width="30" height="6" rx="3" fill="var(--accent)"/><rect x="52" y="71" width="26" height="6" rx="3" fill="var(--ink-2)"/>
+      </svg>
+      <h3>名字整齊</h3>
+      <p>檔名和 ID3 標籤一律「<b>演唱者 - 曲名</b>」，還附上封面圖。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 流程 -->
+<section>
+  <div class="sec-head">
+    <div class="eyebrow">裡面發生什麼事</div>
+    <h2>五個步驟，一氣呵成</h2>
+    <p>重點在第 3～5 步：量音量、調音量、壓成 MP3 是在<b>同一次</b>轉檔裡做完的，聲音只被壓縮一次。</p>
+  </div>
+  <div class="steps">
+
+    <div class="step">
+      <div class="n">1</div>
+      <div class="body">
+        <div><h3>找到影片</h3><p>yt-dlp 去 YouTube 問：「這個網址有哪些音軌？」YouTube 會出一道 JavaScript 小考題，交給 Node.js 解。</p></div>
+        <svg viewBox="0 0 190 110" aria-hidden="true">
+          <rect x="10" y="20" width="70" height="50" rx="10" fill="var(--yt)"/>
+          <polygon points="38,33 38,57 58,45" fill="#fff"/>
+          <circle cx="140" cy="45" r="26" fill="none" stroke="var(--ink-2)" stroke-width="5"/>
+          <line x1="159" y1="64" x2="180" y2="85" stroke="var(--ink-2)" stroke-width="7" stroke-linecap="round"/>
+          <text x="140" y="51" text-anchor="middle" font-family="var(--font-display)" font-weight="700" font-size="20" fill="var(--ink-2)">?</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="n">2</div>
+      <div class="body">
+        <div><h3>只拿聲音，不拿畫面</h3><p>抓最高品質的音軌（Opus 格式，幾 MB 而已），影片畫面完全不下載，所以很快。</p></div>
+        <svg viewBox="0 0 190 110" aria-hidden="true">
+          <rect x="10" y="15" width="90" height="60" rx="8" fill="var(--panel-2)" stroke="var(--line)" stroke-width="2"/>
+          <line x1="20" y1="25" x2="90" y2="65" stroke="var(--bad)" stroke-width="4" stroke-linecap="round"/>
+          <line x1="90" y1="25" x2="20" y2="65" stroke="var(--bad)" stroke-width="4" stroke-linecap="round"/>
+          <polyline points="112,45 122,25 132,65 142,30 152,60 162,38 172,52 180,45" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          <text x="55" y="98" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--ink-2)">畫面 ✕</text>
+          <text x="146" y="98" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--ink-2)">聲音 ✓</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="n">3</div>
+      <div class="body">
+        <div><h3>量一下有多大聲</h3><p>ffmpeg 用 ReplayGain 演算法（跟 MP3Gain 一模一樣的尺）聽完整首歌，算出「現在是幾 dB」。</p></div>
+        <svg viewBox="0 0 190 110" aria-hidden="true">
+          <path d="M30 90 A65 65 0 0 1 160 90" fill="none" stroke="var(--line)" stroke-width="12"/>
+          <path d="M30 90 A65 65 0 0 1 72 34" fill="none" stroke="var(--good)" stroke-width="12"/>
+          <path d="M72 34 A65 65 0 0 1 126 36" fill="none" stroke="var(--warn)" stroke-width="12"/>
+          <path d="M126 36 A65 65 0 0 1 160 90" fill="none" stroke="var(--bad)" stroke-width="12"/>
+          <line x1="95" y1="90" x2="70" y2="45" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="95" cy="90" r="6" fill="var(--ink)"/>
+          <text x="95" y="108" text-anchor="middle" font-family="var(--font-mono)" font-size="13" fill="var(--ink-2)">94.5 dB</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="n">4</div>
+      <div class="body">
+        <div><h3>算差多少，補上去</h3><p>目標 97，現在 94.5，差 2.5。轉檔時就把音量加 2.5 dB。太大聲的歌則往下減。</p></div>
+        <svg viewBox="0 0 190 110" aria-hidden="true">
+          <rect x="20" y="50" width="40" height="45" rx="5" fill="var(--line)"/>
+          <text x="40" y="42" text-anchor="middle" font-family="var(--font-mono)" font-size="13" fill="var(--ink-2)">94.5</text>
+          <path d="M72 60 H108" stroke="var(--accent)" stroke-width="4" stroke-linecap="round"/>
+          <polygon points="106,52 120,60 106,68" fill="var(--accent)"/>
+          <text x="96" y="46" text-anchor="middle" font-family="var(--font-mono)" font-size="13" fill="var(--accent-ink)">+2.5</text>
+          <rect x="130" y="30" width="40" height="65" rx="5" fill="var(--accent)"/>
+          <text x="150" y="22" text-anchor="middle" font-family="var(--font-mono)" font-size="13" fill="var(--accent-ink)">97.0</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="n">5</div>
+      <div class="body">
+        <div><h3>壓成 MP3，貼上名牌</h3><p>320 kbps MP3，寫入演唱者、曲名，把影片縮圖當封面塞進去。存到 <code>output/</code>。</p></div>
+        <svg viewBox="0 0 190 110" aria-hidden="true">
+          <path d="M55 10 H120 L150 40 V95 a8 8 0 0 1 -8 8 H55 a8 8 0 0 1 -8 -8 V18 a8 8 0 0 1 8 -8 Z" fill="var(--accent)"/>
+          <path d="M120 10 V40 H150" fill="none" stroke="var(--accent-ink)" stroke-width="2.5" stroke-linejoin="round"/>
+          <rect x="62" y="52" width="40" height="30" rx="4" fill="#fff" opacity="0.9"/>
+          <circle cx="74" cy="62" r="4" fill="var(--accent)"/>
+          <polygon points="64,80 80,68 92,76 100,70 100,80" fill="var(--accent)" opacity="0.7"/>
+          <text x="124" y="72" text-anchor="middle" font-family="var(--font-display)" font-weight="700" font-size="16" fill="#fff">MP3</text>
+        </svg>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- 為什麼 97 -->
+<section>
+  <div class="pic">
+    <figure>
+      <svg viewBox="0 0 400 260" role="img" aria-label="調整前每首歌高低不一，調整後齊平在 97">
+        <text x="20" y="22" font-family="var(--font-display)" font-size="15" fill="var(--ink-2)">調整前</text>
+        <rect x="20" y="130" width="34" height="90" rx="5" fill="var(--line)"/>
+        <rect x="64" y="70" width="34" height="150" rx="5" fill="var(--line)"/>
+        <rect x="108" y="110" width="34" height="110" rx="5" fill="var(--line)"/>
+        <rect x="152" y="150" width="34" height="70" rx="5" fill="var(--line)"/>
+        <text x="37" y="122" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink-2)">91</text>
+        <text x="81" y="62" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink-2)">96.9</text>
+        <text x="125" y="102" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink-2)">94.5</text>
+        <text x="169" y="142" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink-2)">85</text>
+        <path d="M200 145 H225" stroke="var(--ink-2)" stroke-width="3"/>
+        <polygon points="223,137 236,145 223,153" fill="var(--ink-2)"/>
+        <text x="250" y="22" font-family="var(--font-display)" font-size="15" fill="var(--ink-2)">調整後</text>
+        <line x1="244" y1="70" x2="390" y2="70" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 5"/>
+        <text x="390" y="62" text-anchor="end" font-family="var(--font-mono)" font-size="12" fill="var(--accent-ink)">97.0</text>
+        <rect x="250" y="70" width="30" height="150" rx="5" fill="var(--good)"/>
+        <rect x="288" y="70" width="30" height="150" rx="5" fill="var(--good)"/>
+        <rect x="326" y="70" width="30" height="150" rx="5" fill="var(--good)"/>
+        <rect x="364" y="70" width="26" height="150" rx="5" fill="var(--good)"/>
+        <line x1="20" y1="220" x2="390" y2="220" stroke="var(--line)" stroke-width="2"/>
+        <text x="200" y="248" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--ink-2)">每根柱子 = 一首歌的音量</text>
+      </svg>
+    </figure>
+    <div class="words">
+      <div class="eyebrow">為什麼是 97</div>
+      <h2>你舊的 MP3 就是 96.6</h2>
+      <p>MP3Gain 用 89 當「標準音量」，數字越大越大聲。你手上的收藏在 96～97 之間，所以新下載的也對齊到 97，前後不會突然一大一小。</p>
+      <p class="mono nums" style="color:var(--ink-2)">Volume = 89 − ReplayGain gain</p>
+      <p>MP3Gain 只能一次調 1.5 dB，這個工具是在轉檔前用小數點精準調整，實測誤差 0.02 以內。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 命名 -->
+<section>
+  <div class="pic flip">
+    <figure>
+      <svg viewBox="0 0 400 220" role="img" aria-label="影片標題被裁剪成整齊的檔名">
+        <rect x="16" y="20" width="368" height="46" rx="10" fill="var(--panel-2)"/>
+        <text x="30" y="49" font-family="var(--font-mono)" font-size="13" fill="var(--ink)">4 Non Blondes - What's Up</text>
+        <text x="223" y="49" font-family="var(--font-mono)" font-size="13" fill="var(--bad)" text-decoration="line-through">(Official Music Video)</text>
+        <text x="200" y="88" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--ink-2)">YouTube 標題 ⟶ 去掉雜訊 ⟶ 用「 - 」切開</text>
+        <path d="M200 100 V128" stroke="var(--ink-2)" stroke-width="3"/>
+        <polygon points="192,126 200,140 208,126" fill="var(--ink-2)"/>
+        <rect x="40" y="150" width="150" height="46" rx="10" fill="var(--accent)"/>
+        <text x="115" y="171" text-anchor="middle" font-family="var(--font-display)" font-size="12" fill="#fff" opacity="0.85">演唱者</text>
+        <text x="115" y="188" text-anchor="middle" font-family="var(--font-mono)" font-size="13" fill="#fff">4 Non Blondes</text>
+        <text x="200" y="180" text-anchor="middle" font-family="var(--font-display)" font-weight="700" font-size="22" fill="var(--ink-2)">-</text>
+        <rect x="210" y="150" width="150" height="46" rx="10" fill="var(--accent)"/>
+        <text x="285" y="171" text-anchor="middle" font-family="var(--font-display)" font-size="12" fill="#fff" opacity="0.85">曲名</text>
+        <text x="285" y="188" text-anchor="middle" font-family="var(--font-mono)" font-size="13" fill="#fff">What's Up</text>
+      </svg>
+    </figure>
+    <div class="words">
+      <div class="eyebrow">檔名怎麼來的</div>
+      <h2>先問 YouTube，再拆標題</h2>
+      <p>YouTube 偶爾會直接給演唱者和曲名，有就用。沒有的話就拆標題：先丟掉 <code>(Official Video)</code>、<code>[Lyrics]</code>、<code>| HD</code> 這類字，再從「 - 」或「【 】」切成兩半。</p>
+      <p style="color:var(--ink-2)">都切不開？頻道名當演唱者、整個標題當曲名。這種情況偶爾要手動改名。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 怎麼用 -->
+<section>
+  <div class="sec-head">
+    <div class="eyebrow">怎麼用</div>
+    <h2>三種方式，挑順手的</h2>
+  </div>
+  <div class="ways">
+    <div class="way">
+      <div class="tag">最簡單</div>
+      <p class="big">在 Claude Code 裡直接貼網址</p>
+      <p style="color:var(--ink-2)">專案的 <code>CLAUDE.md</code> 已經寫好規則：看到 YouTube 網址就下載、驗證、回報。也可以打 <code>/yt2mp3 網址</code>。</p>
+    </div>
+    <div class="way">
+      <div class="tag">不開終端機</div>
+      <p class="big">雙擊 <code>yt2mp3.bat</code></p>
+      <p style="color:var(--ink-2)">跳出黑視窗，貼上網址按 Enter，等它跑完。</p>
+    </div>
+    <div class="way">
+      <div class="tag">命令列</div>
+      <pre>python yt2mp3.py "https://www.youtube.com/watch?v=xxxx"</pre>
+      <table class="opts">
+        <tr><td><code>--no-volume</code></td><td>不調音量，保留 YouTube 原本的大小聲</td></tr>
+        <tr><td><code>-v 95</code></td><td>改成別的目標音量</td></tr>
+        <tr><td><code>-b 192</code></td><td>改位元率（預設 320）</td></tr>
+        <tr><td><code>--keep-original</code></td><td>不轉 MP3，直接存 Opus 原檔（音質最好，但相容性差）</td></tr>
+        <tr><td><code>--list urls.txt</code></td><td>一次下載很多首，每行一個網址</td></tr>
+        <tr><td><code>-o 資料夾</code></td><td>改輸出位置（預設 <code>output/</code>）</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- 零件 -->
+<section>
+  <div class="sec-head">
+    <div class="eyebrow">用了哪些零件</div>
+    <h2>四樣東西，都是免費的</h2>
+  </div>
+  <div class="parts">
+    <div class="part">
+      <svg viewBox="0 0 56 56" aria-hidden="true"><path d="M28 6 V36 M16 26 L28 38 L40 26" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="10" y="42" width="36" height="6" rx="3" fill="var(--ink-2)"/></svg>
+      <b>yt-dlp</b><span>負責跟 YouTube 講話、把音軌抓下來。YouTube 常改版，它也常更新。</span>
+    </div>
+    <div class="part">
+      <svg viewBox="0 0 56 56" aria-hidden="true"><polyline points="6,28 14,14 22,42 30,20 38,36 46,24 50,28" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <b>ffmpeg</b><span>聲音的瑞士刀：量音量、調音量、轉成 MP3、貼標籤和封面，全靠它。</span>
+    </div>
+    <div class="part">
+      <svg viewBox="0 0 56 56" aria-hidden="true"><polygon points="28,6 48,17 48,39 28,50 8,39 8,17" fill="none" stroke="var(--good)" stroke-width="4" stroke-linejoin="round"/><text x="28" y="34" text-anchor="middle" font-family="var(--font-display)" font-weight="700" font-size="16" fill="var(--good)">JS</text></svg>
+      <b>Node.js</b><span>幫 yt-dlp 解 YouTube 出的 JavaScript 考題，不然會缺格式。</span>
+    </div>
+    <div class="part">
+      <svg viewBox="0 0 56 56" aria-hidden="true"><rect x="8" y="8" width="40" height="40" rx="10" fill="none" stroke="var(--ink-2)" stroke-width="4"/><text x="28" y="35" text-anchor="middle" font-family="var(--font-mono)" font-size="16" fill="var(--ink-2)">py</text></svg>
+      <b>Python</b><span>把上面三樣串起來的 200 行腳本，就是 <code>yt2mp3.py</code>。</span>
+    </div>
+  </div>
+</section>
+
+<!-- 注意 -->
+<section>
+  <div class="sec-head">
+    <div class="eyebrow">要知道的事</div>
+    <h2>三個小提醒</h2>
+  </div>
+  <div class="pic">
+    <figure>
+      <svg viewBox="0 0 400 200" role="img" aria-label="波形超過天花板被削平">
+        <line x1="20" y1="40" x2="380" y2="40" stroke="var(--bad)" stroke-width="2" stroke-dasharray="6 5"/>
+        <text x="380" y="32" text-anchor="end" font-family="var(--font-mono)" font-size="12" fill="var(--bad)">0 dB 天花板</text>
+        <line x1="20" y1="110" x2="380" y2="110" stroke="var(--line)" stroke-width="1"/>
+        <path d="M20 110 C40 60 50 60 70 110 S100 160 120 110 S150 20 170 40 L200 40 C210 40 215 40 225 40 L250 40 C270 40 275 160 300 110 S340 60 360 110" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round"/>
+        <rect x="170" y="36" width="80" height="8" fill="var(--bad)" opacity="0.6"/>
+        <text x="210" y="70" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--bad)">削平了</text>
+        <text x="200" y="190" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--ink-2)">來源太小聲、往上推太多時會這樣</text>
+      </svg>
+    </figure>
+    <div class="words">
+      <div class="note"><b>推太大聲會削波</b>來源只有 91 的歌要推 +6 dB 才到 97，最高點可能撞到天花板。有些播放器聽得出來。在意的話用 <code>-v 95</code>。</div>
+      <div class="note"><b>網址帶 <span class="mono">list=</span> 會抓整份清單</b>從播放清單點進來的網址後面常有 <code>&amp;list=...</code>，那會下載幾十首。只要一首就把它刪掉。</div>
+      <div class="note"><b>壞了先更新</b>YouTube 改版時 yt-dlp 會失效。執行 <code>python -m pip install -U yt-dlp</code> 通常就好。</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>音質天花板永遠是 YouTube 給的那條音軌（約 150 kbps Opus）。320 kbps MP3 是為了「不再變差」，不是「變得更好」。只下載你有權使用的內容。</p>
+</footer>
+
+</div>
+</body>
+</html>

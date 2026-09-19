@@ -1,0 +1,16 @@
+# 下載輸出
+output/
+
+# 音訊檔（含根目錄的測試檔）
+*.mp3
+*.m4a
+*.opus
+*.webm
+*.webp
+
+# Python
+__pycache__/
+*.pyc
+
+# Claude Code 本機設定
+.claude/settings.local.json
