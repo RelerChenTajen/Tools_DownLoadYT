@@ -13,6 +13,7 @@ PYTHONIOENCODING=utf-8 python yt2mp3.py "<URL>" [<URL> ...]
 
 `$ARGUMENTS` 內的網址全部傳入；可含播放清單網址。若使用者另外指定：
 - 「不要調音量 / 保留原始」→ 加 `--no-volume`
+- 「不要 limiter / 不要壓峰值」→ 加 `--no-limit`
 - 「音量調到 N」→ 加 `-v N`
 - 「不要轉檔 / 保留原始格式」→ 加 `--keep-original`
 

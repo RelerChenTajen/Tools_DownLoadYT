@@ -389,6 +389,7 @@
       <pre>python yt2mp3.py "https://www.youtube.com/watch?v=xxxx"</pre>
       <table class="opts">
         <tr><td><code>--no-volume</code></td><td>不調音量，保留 YouTube 原本的大小聲</td></tr>
+        <tr><td><code>--no-limit</code></td><td>拉高音量後不壓峰值（可能削波）</td></tr>
         <tr><td><code>-v 95</code></td><td>改成別的目標音量</td></tr>
         <tr><td><code>-b 192</code></td><td>改位元率（預設 320）</td></tr>
         <tr><td><code>--keep-original</code></td><td>不轉 MP3，直接存 Opus 原檔（音質最好，但相容性差）</td></tr>
@@ -444,7 +445,7 @@
       </svg>
     </figure>
     <div class="words">
-      <div class="note"><b>推太大聲會削波</b>來源只有 91 的歌要推 +6 dB 才到 97，最高點可能撞到天花板。有些播放器聽得出來。在意的話用 <code>-v 95</code>。</div>
+      <div class="note"><b>推太大聲會自動壓峰值</b>來源只有 91 的歌要推 +6 dB 才到 97，最高點會撞到天花板。腳本會自動加 limiter 把峰值壓住，音量仍對齊 97。想保留原本的動態就用 <code>-v 95</code> 或 <code>--no-limit</code>。</div>
       <div class="note"><b>網址帶 <span class="mono">list=</span> 會抓整份清單</b>從播放清單點進來的網址後面常有 <code>&amp;list=...</code>，那會下載幾十首。只要一首就把它刪掉。</div>
       <div class="note"><b>壞了先更新</b>YouTube 改版時 yt-dlp 會失效。執行 <code>python -m pip install -U yt-dlp</code> 通常就好。</div>
     </div>

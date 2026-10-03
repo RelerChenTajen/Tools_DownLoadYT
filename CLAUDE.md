@@ -6,6 +6,7 @@
 ## 固定下載設定（內定值，已寫在 yt2mp3.py 頂部的 DEFAULT_* 常數）
 - 320 kbps MP3，48 kHz 立體聲
 - MP3Gain Volume 調整到 **97.0 dB**（ReplayGain 演算法；在單次轉檔內套用增益，不多一次有損壓縮）
+- 增益後峰值超過 −1 dBFS 自動加 limiter（並補償響度，仍為 97.0）
 - 輸出到 `output/`
 - 檔名與 ID3 標籤：`演唱者 - 曲名.mp3`（自動由 YouTube 中繼資料或標題拆解）
 - 內嵌封面
@@ -21,6 +22,7 @@ ffmpeg 不在 PATH 時位於 `%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmp
 
 ## 常用變化
 - 保留原始響度：`--no-volume`
+- 不壓峰值：`--no-limit`
 - 改音量目標：`-v 95`
 - 保留原始 Opus/M4A 不轉檔：`--keep-original`
 - 批次：`--list urls.txt`（每行一個網址）

@@ -79,6 +79,7 @@ python yt2mp3.py "https://www.youtube.com/watch?v=xxxx"
 | 參數 | 作用 |
 |---|---|
 | `--no-volume` | 不調音量，保留 YouTube 原本的大小聲 |
+| `--no-limit` | 拉高音量後不壓峰值（可能削波） |
 | `-v 95` | 改成別的目標音量（預設 97） |
 | `-b 192` | 改位元率（預設 320） |
 | `--keep-original` | 不轉 MP3，直接存 Opus 原檔（音質最好，但相容性差） |
@@ -96,8 +97,8 @@ python yt2mp3.py "https://www.youtube.com/watch?v=xxxx"
 
 ## 三個小提醒
 
-**推太大聲會削波**
-來源只有 91 的歌要推 +6 dB 才到 97，最高點可能撞到 0 dB 天花板，有些播放器聽得出來。在意的話用 `-v 95`。
+**推太大聲會自動壓峰值**
+來源只有 91 的歌要推 +6 dB 才到 97，最高點會撞到 0 dB 天花板。腳本會自動加 limiter 把峰值壓在 −1 dBFS 附近，響度仍對齊 97。想保留未壓縮的動態就用 `-v 95` 或 `--no-limit`。
 
 ```
  0 dB ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄  ← 天花板
@@ -124,13 +125,17 @@ YouTube 改版時 yt-dlp 會失效。執行 `python -m pip install -U yt-dlp` �
 - Node.js（yt-dlp 的 JS runtime；已安裝的話不用動）
 
 ## 內定值
-定義在 `yt2mp3.py` 頂部：`DEFAULT_OUTDIR`、`DEFAULT_BITRATE`、`DEFAULT_VOLUME`，改常數即可變更預設。
+定義在 `yt2mp3.py` 頂部：`DEFAULT_OUTDIR`、`DEFAULT_BITRATE`、`DEFAULT_VOLUME`、`DEFAULT_PEAK_LIMIT`，改常數即可變更預設。
 在 Claude Code 中的行為由 `CLAUDE.md` 與 `.claude/skills/yt2mp3/SKILL.md` 定義。
 
 ## 音量調整的實作
 用 ffmpeg 的 `replaygain` 濾鏡（ReplayGain 1.0，與 MP3Gain 相同演算法）量測來源音訊，
 在「解碼 → 增益 → 編碼 MP3」單一流程內套用精確增益（`GainedExtractAudioPP`），不會多一次有損轉檔。
-實測目標 97 → 輸出 97.00 ± 0.02。拉高音量不做限幅，峰值可能超過 0 dBFS（MP3 可儲存，但播放時可能削波）。
+實測目標 97 → 輸出 97.00 ± 0.02。
+
+增益後預估峰值超過 `DEFAULT_PEAK_LIMIT`（−1 dBFS）時，在增益後接 `alimiter`（lookahead limiter，關閉自動拉高、補償延遲）。
+limiter 會吃掉一點響度，所以先用割線法反覆量測「增益 + limiter」的結果、修正增益，讓輸出仍落在 97 ± 0.05。
+MP3 編碼會讓峰值略為回升（實測 −1 dBFS → 約 0.99），仍低於 0 dBFS。峰值本來就夠低的歌不會經過 limiter。
 
 量測任一檔案的 MP3Gain 讀值：
 ```
