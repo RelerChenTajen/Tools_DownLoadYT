@@ -91,11 +91,17 @@ python yt2mp3.py "https://www.youtube.com/watch?v=xxxx"
 從 MV 下載的歌常沒有專輯，年份也只是影片上傳年份。`fill_tags.py` 會用「演唱者 + 曲名」搜尋 YouTube Music，找出原始專輯：
 
 ```
-python fill_tags.py           # 先看建議（不寫入）
-python fill_tags.py --apply   # 確認後寫入
+python fill_tags.py                      # 掃描 output/，結果寫進 fill_tags_report.csv（不動 MP3）
+python fill_tags.py "D:\某資料夾" --batch 30   # 掃描其他資料夾，每次 30 首；重複執行會接續
+python fill_tags.py --apply              # 依報告中 apply=Y 的列寫入
 ```
 
-只改 ID3 標籤（專輯、發行年份、正方形專輯封面），不重新編碼，音質與音量不變。標 ⚠ 的是長度差較大、需要人工確認的項目。
+分兩階段：先掃描產生報告，可用 Excel 開啟檢查，把不要寫入的列 `apply` 改成 `N`；`--apply` 照報告寫入、不重新搜尋，看到的就是寫入的。
+只改 ID3 標籤（演唱者、曲名、專輯、發行年份、正方形專輯封面），不重新編碼，音質與音量不變。
+
+報告 `status`：`ok` 相符；`warn` 需確認（長度差大、或只找到精選輯／合輯，後者預設 `apply=N`）；`notfound` 找不到。
+
+> Windows「文件」資料夾若開啟了勒索軟體防護（受控資料夾存取），Python 無法寫入；先把檔案複製到 `output/` 處理，再用檔案總管複製回去。
 
 ## 用了哪些零件（都是免費的）
 
@@ -158,11 +164,13 @@ ffmpeg -i <file> -af replaygain -f null -      # Volume = 89 − track_gain
 在 `derive_artist_track()`；遇到解析不佳的標題，改該函式而不是手動改檔名。
 
 ## 補標籤的比對規則（`fill_tags.py`）
-1. 標籤讀演唱者與曲名；沒有標籤時從「演唱者 - 曲名」檔名拆。
+1. 標籤讀演唱者與曲名；沒有標籤時從「演唱者 - 曲名」檔名拆（也接受「演唱者- 曲名」）。標籤已齊全的檔案預設略過（`--all` 可重查）。
 2. YouTube Music 歌曲搜尋，演唱者與曲名正規化後須相符；標題含 Live、Karaoke、Remix、Re-Recorded 等版本字樣（原曲名沒有時）排除。
 3. 長度差在 `--tolerance`（預設 60 秒）內的候選中，取發行年份最早者（原版優於精選輯）；全部超出時取最接近者並標 ⚠。
 4. 再查演唱者的專輯清單，若有更早收錄同名曲的專輯則改用它。
-5. 寫入 TALB、TDRC 與 1200×1200 JPEG 封面，以 ID3v2.3 儲存；已有的演唱者/曲名不覆蓋。
+5. 專輯名稱像精選輯／合輯（Greatest、Best of、Hits、Collection、Vol. 等）時標 ⚠ 且預設不寫入。
+6. 寫入 TALB、TDRC 與 1200×1200 JPEG 封面，以 ID3v2.3 儲存。已有的演唱者/曲名不覆蓋；沒有時採 YouTube Music 正式寫法
+   （曲名去掉原檔名沒有的括號說明，例如 `(From "Dirty Dancing" Soundtrack)`；檔名列出的合唱者較多時沿用檔名）。
 
 ## 音質說明
 YouTube 提供的音訊上限約 Opus 160 kbps / AAC 128 kbps（Premium 256 kbps）。

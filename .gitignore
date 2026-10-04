@@ -14,3 +14,7 @@ __pycache__/
 
 # Claude Code 本機設定
 .claude/settings.local.json
+
+# fill_tags.py 報告
+fill_tags_report.csv
+fill_tags_report.csv.tmp

@@ -4,18 +4,26 @@ fill_tags.py - 用「演唱者 + 曲名」搜尋 YouTube Music，補齊 MP3 的�
 
 只改 ID3 標籤，不重新編碼，音質與音量不變。
 
+分兩階段：
+  1. 掃描：搜尋結果寫進 CSV 報告（不動 MP3）。每次最多處理 --batch 首，可重複執行接續，已在報告中的不重查。
+  2. 寫入：--apply 依報告中 apply=Y 的列寫入（不重新搜尋，看到的就是寫入的）。
+報告可用 Excel 開啟檢查，把不要寫入的列 apply 改成 N。
+
 用法:
-    python fill_tags.py                       # 預設：掃描 output/*.mp3，只列出建議（不寫入）
-    python fill_tags.py --apply               # 確認後實際寫入
-    python fill_tags.py "output/某首.mp3" --apply
-    python fill_tags.py --tolerance 30        # 長度差容許秒數（預設 60；MV 與專輯版常差數十秒）
-    python fill_tags.py --keep-cover          # 不換封面
+    python fill_tags.py                                   # 掃描 output/（預設），寫報告
+    python fill_tags.py "E:\\Music\\某資料夾" --batch 30    # 掃描指定資料夾，每次 30 首
+    python fill_tags.py --apply                           # 依報告寫入
+    python fill_tags.py --tolerance 30                    # 長度差容許秒數（預設 60）
+    python fill_tags.py --keep-cover                      # 不換封面
+    python fill_tags.py --all                             # 標籤已齊全的檔案也重新查
 """
 import argparse
+import csv
 import glob
 import os
 import re
 import sys
+import time
 import unicodedata
 import urllib.request
 
@@ -31,6 +39,12 @@ DEFAULT_TOLERANCE = 60       # 秒；只用來排除明顯不同的版本（MV �
 COVER_SIZE = 1200            # 專輯封面邊長（px）；YouTube Music 圖片網址可指定尺寸
 MAX_CANDIDATES = 6           # 每首最多比較幾個候選（每個候選要多查一次專輯）
 MAX_DISCOGRAPHY = 8          # 往演唱者專輯清單找更早原版時，最多檢查幾張
+DEFAULT_REPORT = "fill_tags_report.csv"
+DEFAULT_BATCH = 30           # 每次執行最多新掃描幾首
+DEFAULT_DELAY = 1.0          # 每首之間暫停秒數，避免 YouTube Music 限速
+
+REPORT_FIELDS = ["apply", "status", "file", "note", "cur_artist", "cur_title", "new_artist", "new_title",
+                 "album", "year", "type", "file_dur", "track_dur", "url", "cover_url", "applied"]
 
 # 候選標題含這些字，但原曲名沒有時，視為不同版本
 _VERSION_WORDS = re.compile(
@@ -77,16 +91,20 @@ def read_current(path: str) -> dict:
         tags = ID3()
     get = lambda k: str(tags[k].text[0]) if k in tags and tags[k].text else ""
     artist, title = get("TPE1"), get("TIT2")
-    if not (artist and title):
+    tagged = bool(artist and title)
+    if not tagged:
         stem = os.path.splitext(os.path.basename(path))[0].replace("⧸", "/")
-        if " - " in stem:
-            a, t = stem.split(" - ", 1)
-            artist, title = artist or a.strip(), title or t.strip()
-    return {
-        "artist": artist, "title": title, "album": get("TALB"), "year": get("TDRC")[:4],
+        # 「演唱者 - 曲名」，也接受「演唱者- 曲名」（但不拆 A-ha 這種名字內的連字號）
+        m = re.match(r"^(.+?)\s+-\s+(.+)$", stem) or re.match(r"^(.+?)-\s+(.+)$", stem)
+        if m:
+            artist, title = artist or m.group(1).strip(), title or m.group(2).strip()
+    cur = {
+        "artist": artist, "title": title, "tagged": tagged, "album": get("TALB"), "year": get("TDRC")[:4],
         "duration": MP3(path).info.length,
         "has_cover": any(k.startswith("APIC") for k in tags.keys()),
     }
+    cur["complete"] = tagged and bool(cur["album"] and cur["year"] and cur["has_cover"])
+    return cur
 
 
 def cover_url(thumbnails: list[dict]) -> str | None:
@@ -181,76 +199,182 @@ def find_in_discography(yt: YTMusic, cur: dict, best: dict, artist_id: str | Non
     return None
 
 
-def write_tags(path: str, m: dict, cover: bytes | None):
+def write_tags(path: str, row: dict, cover: bytes | None):
     try:
         tags = ID3(path)
     except ID3NoHeaderError:
         tags = ID3()
-    tags.setall("TALB", [TALB(encoding=3, text=m["album"])])
-    if m["year"]:
-        tags.setall("TDRC", [TDRC(encoding=3, text=m["year"])])
-    # 原本沒有演唱者/曲名（從檔名拆出來的）才補上，不覆蓋既有值
+    tags.setall("TALB", [TALB(encoding=3, text=row["album"])])
+    if row["year"]:
+        tags.setall("TDRC", [TDRC(encoding=3, text=row["year"])])
+    # 原本沒有演唱者/曲名才寫入（採 YouTube Music 正式寫法），不覆蓋既有值
     if "TPE1" not in tags:
-        tags.add(TPE1(encoding=3, text=m["file_artist"]))
+        tags.add(TPE1(encoding=3, text=row["new_artist"]))
     if "TIT2" not in tags:
-        tags.add(TIT2(encoding=3, text=m["file_title"]))
+        tags.add(TIT2(encoding=3, text=row["new_title"]))
     if cover:
         tags.delall("APIC")
         tags.add(APIC(encoding=3, mime="image/jpeg", type=3, desc="Cover", data=cover))
     tags.save(path, v2_version=3)
 
 
+def load_report(path: str) -> list[dict]:
+    if not os.path.exists(path):
+        return []
+    with open(path, encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def save_report(path: str, rows: list[dict]):
+    # utf-8-sig：Excel 才會正確顯示中文；先寫暫存檔再取代，中斷也不會毀損報告
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=REPORT_FIELDS, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(rows)
+    os.replace(tmp, path)
+
+
+def collect_files(paths: list[str]) -> list[str]:
+    files = []
+    for p in paths or [DEFAULT_OUTDIR]:
+        if os.path.isdir(p):
+            files += sorted(glob.glob(os.path.join(p, "*.mp3")))
+        elif p.lower().endswith(".mp3"):
+            files.append(p)
+    return [os.path.abspath(f) for f in files]
+
+
+def scan_one(yt: YTMusic, path: str, tolerance: float) -> dict:
+    cur = read_current(path)
+    row = {"file": path, "cur_artist": cur["artist"], "cur_title": cur["title"],
+           "file_dur": f"{cur['duration']:.0f}", "applied": ""}
+    if not (cur["artist"] and cur["title"]):
+        return {**row, "apply": "N", "status": "skip", "note": "無法判斷演唱者/曲名"}
+    m, note = find_match(yt, cur, tolerance)
+    if not m:
+        return {**row, "apply": "N", "status": "notfound", "note": note}
+    if _COMPILATION.search(m["album"]):
+        note += "，⚠ 可能是精選輯／合輯，年份可能不是原始發行年"
+    warn = "⚠" in note
+    return {
+        **row, "apply": "N" if warn else "Y", "status": "warn" if warn else "ok", "note": note,
+        # 原本有標籤就沿用；沒有才採 YouTube Music 的正式寫法
+        "new_artist": cur["artist"] if cur["tagged"] else pick_artist(cur["artist"], m["artists"]),
+        "new_title": cur["title"] if cur["tagged"] else tidy_title(m["title"], cur["title"]),
+        "album": m["album"], "year": m["year"], "type": m["type"], "track_dur": str(m["duration"]),
+        "url": f"https://music.youtube.com/watch?v={m['video_id']}", "cover_url": m["cover"] or "",
+    }
+
+
+_COMPILATION = re.compile(
+    r"\b(greatest|best of|hits|collection|classics|essential|anthology|definitive|love songs|vol\.?|volume|"
+    r"magic of|made in california|valentine)\b",
+    re.IGNORECASE,
+)
+
+
+def pick_artist(file_artist: str, yt_artists: list[str]) -> str:
+    """採 YouTube Music 寫法；但檔名列出的合唱者比 YouTube Music 多時（漏列合唱者），改用檔名並以 & 連接。"""
+    if len(split_artists(file_artist)) > len(yt_artists):
+        return re.sub(r"\s*,\s*", " & ", file_artist.strip())
+    return " & ".join(yt_artists)
+
+
+def tidy_title(yt_title: str, file_title: str) -> str:
+    """去掉 YouTube Music 曲名中、原曲名沒有的括號說明，例如 (From "Dirty Dancing" Soundtrack)、(Remastered)。"""
+    plain = lambda s: re.sub(r"[^\w]+", " ", unicodedata.normalize("NFKC", s).lower()).strip()
+
+    def keep(m):
+        return m.group(0) if plain(m.group(0)) and plain(m.group(0)) in plain(file_title) else ""
+    t = re.sub(r"\s*[\(\[【（][^\(\)\[\]【】（）]*[\)\]】）]", keep, yt_title).strip()
+    return re.sub(r"\s+([?!])$", r"\1", t) or yt_title
+
+
+def print_row(row: dict):
+    mark = {"ok": "✓", "warn": "⚠"}.get(row["status"], "✗")
+    print(f"{mark} {os.path.basename(row['file'])}  （{row['note']}）")
+    if row["status"] in ("ok", "warn"):
+        print(f"    {row['cur_artist']} - {row['cur_title']}  →  {row['new_artist']} - {row['new_title']}"
+              f"  [{row['track_dur']}s，檔案 {row['file_dur']}s]")
+        print(f"    專輯: {row['album']} ({row['type']})   年份: {row['year'] or '（無）'}   {row['url']}")
+
+
+def cmd_scan(args) -> int:
+    rows = load_report(args.report)
+    done = {r["file"] for r in rows}
+    files = collect_files(args.paths)
+    todo = []
+    for f in files:
+        if f in done:
+            continue
+        if not args.all and read_current(f)["complete"]:
+            continue
+        todo.append(f)
+    print(f"共 {len(files)} 首；報告已有 {len(done & set(files))} 首；待掃描 {len(todo)} 首，本次處理 {min(len(todo), args.batch)} 首\n")
+
+    yt = YTMusic()
+    for i, f in enumerate(todo[:args.batch], 1):
+        try:
+            row = scan_one(yt, f, args.tolerance)
+        except Exception as e:  # 網路或限速：不寫進報告，下次重試
+            print(f"✗ {os.path.basename(f)}  （搜尋失敗，下次重試：{e}）")
+            continue
+        rows.append(row)
+        save_report(args.report, rows)      # 每首存一次，中斷可接續
+        print(f"[{i}] ", end="")
+        print_row(row)
+        if i < min(len(todo), args.batch):
+            time.sleep(args.delay)
+
+    remaining = len(todo) - min(len(todo), args.batch)
+    stat = {s: sum(r["status"] == s for r in rows if r["file"] in set(files)) for s in ("ok", "warn", "notfound", "skip")}
+    print(f"\n報告：{os.path.abspath(args.report)}")
+    print(f"相符 {stat['ok']}、需確認 {stat['warn']}（預設 apply=N）、找不到 {stat['notfound']}、略過 {stat['skip']}；"
+          f"尚待掃描 {remaining} 首")
+    print("再執行一次可繼續下一批；檢查報告後用 --apply 寫入" if remaining else "檢查報告後用 --apply 寫入")
+    return 0
+
+
+def cmd_apply(args) -> int:
+    rows = load_report(args.report)
+    if not rows:
+        print(f"沒有報告 {args.report}，請先執行掃描")
+        return 1
+    targets = [r for r in rows if r["apply"].strip().upper() == "Y" and r["status"] in ("ok", "warn") and not r["applied"]]
+    print(f"依報告寫入 {len(targets)} 首\n")
+    ok = 0
+    for r in targets:
+        name = os.path.basename(r["file"])
+        try:
+            cover = None
+            if not args.keep_cover and r["cover_url"]:
+                with urllib.request.urlopen(r["cover_url"], timeout=30) as resp:
+                    cover = resp.read()
+            write_tags(r["file"], r, cover)
+            r["applied"] = time.strftime("%Y-%m-%d %H:%M")
+            ok += 1
+            print(f"✓ {name}  →  {r['new_artist']} - {r['new_title']} / {r['album']} ({r['year']})")
+        except Exception as e:
+            print(f"✗ {name}  寫入失敗：{e}")
+        save_report(args.report, rows)
+    print(f"\n已寫入 {ok} / {len(targets)} 首")
+    return 0
+
+
 def main() -> int:
-    ap = argparse.ArgumentParser(description="用 YouTube Music 補齊 MP3 的專輯、年份、封面")
-    ap.add_argument("files", nargs="*", help=f"MP3 檔（預設 {DEFAULT_OUTDIR}/*.mp3）")
-    ap.add_argument("--apply", action="store_true", help="實際寫入（預設只列出建議）")
+    ap = argparse.ArgumentParser(description="用 YouTube Music 補齊 MP3 的演唱者、曲名、專輯、年份、封面")
+    ap.add_argument("paths", nargs="*", help=f"MP3 檔或資料夾（預設 {DEFAULT_OUTDIR}/）")
+    ap.add_argument("--apply", action="store_true", help="依報告寫入 apply=Y 的列")
+    ap.add_argument("--report", default=DEFAULT_REPORT, help=f"報告 CSV 路徑（預設 {DEFAULT_REPORT}）")
+    ap.add_argument("--batch", type=int, default=DEFAULT_BATCH, help=f"每次最多新掃描幾首（預設 {DEFAULT_BATCH}）")
+    ap.add_argument("--delay", type=float, default=DEFAULT_DELAY, help=f"每首間隔秒數（預設 {DEFAULT_DELAY:g}）")
     ap.add_argument("--tolerance", type=float, default=DEFAULT_TOLERANCE, metavar="SEC",
                     help=f"長度差容許秒數（預設 {DEFAULT_TOLERANCE}）")
     ap.add_argument("--keep-cover", action="store_true", help="保留原本的封面")
+    ap.add_argument("--all", action="store_true", help="標籤已齊全的檔案也重新查")
     args = ap.parse_args()
-
-    files = args.files or sorted(glob.glob(os.path.join(DEFAULT_OUTDIR, "*.mp3")))
-    if not files:
-        print("沒有 MP3 檔")
-        return 1
-
-    yt = YTMusic()
-    found = 0
-    for path in files:
-        name = os.path.basename(path)
-        cur = read_current(path)
-        if not (cur["artist"] and cur["title"]):
-            print(f"✗ {name}\n    無法判斷演唱者/曲名，略過\n")
-            continue
-        try:
-            m, note = find_match(yt, cur, args.tolerance)
-        except Exception as e:  # 網路或 API 變動
-            print(f"✗ {name}\n    搜尋失敗：{e}\n")
-            continue
-        if not m:
-            print(f"✗ {name}\n    {note}（{cur['artist']} / {cur['title']}，{cur['duration']:.0f}s）\n")
-            continue
-        found += 1
-        m["file_artist"], m["file_title"] = cur["artist"], cur["title"]
-        print(f"✓ {name}  （{note}）")
-        print(f"    對應: {' / '.join(m['artists'])} - {m['title']}  "
-              f"[{m['duration']}s，檔案 {cur['duration']:.0f}s]  https://music.youtube.com/watch?v={m['video_id']}")
-        print(f"    專輯: {cur['album'] or '（無）'} → {m['album']}  ({m['type']})")
-        print(f"    年份: {cur['year'] or '（無）'} → {m['year'] or '（無）'}")
-        if not args.keep_cover:
-            print(f"    封面: {'影片截圖' if cur['has_cover'] else '（無）'} → 專輯封面 {COVER_SIZE}×{COVER_SIZE}")
-
-        if args.apply:
-            cover = None
-            if not args.keep_cover and m["cover"]:
-                with urllib.request.urlopen(m["cover"], timeout=30) as resp:
-                    cover = resp.read()
-            write_tags(path, m, cover)
-            print("    已寫入")
-        print()
-
-    print(f"相符 {found} / {len(files)} 首" + ("" if args.apply else "；確認無誤後加 --apply 寫入"))
-    return 0
+    return cmd_apply(args) if args.apply else cmd_scan(args)
 
 
 if __name__ == "__main__":

@@ -26,7 +26,7 @@ ffmpeg 不在 PATH 時位於 `%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmp
 - 改音量目標：`-v 95`
 - 保留原始 Opus/M4A 不轉檔：`--keep-original`
 - 批次：`--list urls.txt`（每行一個網址）
-- 補專輯／發行年份／正方形專輯封面：`python fill_tags.py`（先看建議）→ `--apply` 寫入；只改標籤不重編碼
+- 補演唱者／曲名／專輯／發行年份／正方形專輯封面：`python fill_tags.py [資料夾] --batch 30`（掃描寫進 fill_tags_report.csv）→ 檢查報告 → `--apply` 依報告寫入；只改標籤不重編碼
 
 ## 疑難排解
 - 下載失敗先更新：`python -m pip install -U yt-dlp`（YouTube 常改版）
