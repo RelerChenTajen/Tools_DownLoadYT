@@ -29,7 +29,7 @@ except ImportError:
 # 標題常見的雜訊後綴，例如 "(Official Music Video)"、"[Lyrics]"、"| HD"
 _NOISE = re.compile(
     # 括號內容不可跨越右括號，避免 "(I've Had) ... (Official Video)" 從第一個 "(" 一路刪到最後
-    r"\s*[\(\[【（][^\)\]】）]*?(official|video|audio|lyric|hd|4k|mv|visualizer|remaster|live|"
+    r"\s*[\(\[【（][^\)\]】）]*?(official|video|audio|lyric|hd|4k|mv|visualizer|remaster|live|stereo|mono|"
     r"官方|字幕|歌詞|完整版)[^\)\]】）]*?[\)\]】）]\s*|\s*\|.*$",
     re.IGNORECASE,
 )
@@ -58,7 +58,8 @@ def _derive_artist_track(info: dict) -> tuple[str, str]:
     """優先用 YouTube 提供的 artist/track，其次拆解標題。"""
     artist, track = info.get("artist"), info.get("track")
     if artist and track:
-        return artist, track
+        # YouTube Music 曲名常帶 "(Stereo) (2009 Remaster)" 之類版本字樣，同樣清掉
+        return artist, clean_title(track) or track
 
     title = clean_title(info.get("title") or "")
     uploader = re.sub(r"\s*-\s*Topic$", "", info.get("uploader") or info.get("channel") or "Unknown")
