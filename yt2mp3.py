@@ -28,8 +28,9 @@ except ImportError:
 
 # 標題常見的雜訊後綴，例如 "(Official Music Video)"、"[Lyrics]"、"| HD"
 _NOISE = re.compile(
-    r"\s*[\(\[【（].*?(official|video|audio|lyric|hd|4k|mv|visualizer|remaster|live|"
-    r"官方|字幕|歌詞|完整版).*?[\)\]】）]\s*|\s*\|.*$",
+    # 括號內容不可跨越右括號，避免 "(I've Had) ... (Official Video)" 從第一個 "(" 一路刪到最後
+    r"\s*[\(\[【（][^\)\]】）]*?(official|video|audio|lyric|hd|4k|mv|visualizer|remaster|live|"
+    r"官方|字幕|歌詞|完整版)[^\)\]】）]*?[\)\]】）]\s*|\s*\|.*$",
     re.IGNORECASE,
 )
 _SEP = re.compile(r"\s+[-–—|:：]\s+")
