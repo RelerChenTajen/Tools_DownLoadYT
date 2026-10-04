@@ -86,6 +86,17 @@ python yt2mp3.py "https://www.youtube.com/watch?v=xxxx"
 | `--list urls.txt` | 一次下載很多首，每行一個網址 |
 | `-o 資料夾` | 改輸出位置（預設 `output/`） |
 
+### 補齊專輯、年份、專輯封面
+
+從 MV 下載的歌常沒有專輯，年份也只是影片上傳年份。`fill_tags.py` 會用「演唱者 + 曲名」搜尋 YouTube Music，找出原始專輯：
+
+```
+python fill_tags.py           # 先看建議（不寫入）
+python fill_tags.py --apply   # 確認後寫入
+```
+
+只改 ID3 標籤（專輯、發行年份、正方形專輯封面），不重新編碼，音質與音量不變。標 ⚠ 的是長度差較大、需要人工確認的項目。
+
 ## 用了哪些零件（都是免費的）
 
 | 零件 | 角色 |
@@ -94,6 +105,7 @@ python yt2mp3.py "https://www.youtube.com/watch?v=xxxx"
 | **ffmpeg** | 聲音的瑞士刀：量音量、調音量、轉成 MP3、貼標籤和封面，全靠它 |
 | **Node.js** | 幫 yt-dlp 解 YouTube 出的 JavaScript 考題，不然會缺格式 |
 | **Python** | 把上面三樣串起來的 200 行腳本，就是 `yt2mp3.py` |
+| **ytmusicapi / mutagen** | `fill_tags.py` 用來搜尋 YouTube Music、寫入 ID3 標籤 |
 
 ## 三個小提醒
 
@@ -144,6 +156,13 @@ ffmpeg -i <file> -af replaygain -f null -      # Volume = 89 − track_gain
 
 ## 命名邏輯
 在 `derive_artist_track()`；遇到解析不佳的標題，改該函式而不是手動改檔名。
+
+## 補標籤的比對規則（`fill_tags.py`）
+1. 標籤讀演唱者與曲名；沒有標籤時從「演唱者 - 曲名」檔名拆。
+2. YouTube Music 歌曲搜尋，演唱者與曲名正規化後須相符；標題含 Live、Karaoke、Remix、Re-Recorded 等版本字樣（原曲名沒有時）排除。
+3. 長度差在 `--tolerance`（預設 60 秒）內的候選中，取發行年份最早者（原版優於精選輯）；全部超出時取最接近者並標 ⚠。
+4. 再查演唱者的專輯清單，若有更早收錄同名曲的專輯則改用它。
+5. 寫入 TALB、TDRC 與 1200×1200 JPEG 封面，以 ID3v2.3 儲存；已有的演唱者/曲名不覆蓋。
 
 ## 音質說明
 YouTube 提供的音訊上限約 Opus 160 kbps / AAC 128 kbps（Premium 256 kbps）。
