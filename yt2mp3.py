@@ -45,8 +45,17 @@ def clean_title(t: str) -> str:
     return re.sub(r"\s{2,}", " ", t).strip(" -–—")
 
 
+_QUOTES = str.maketrans({"’": "'", "‘": "'", "‛": "'", "`": "'", "“": '"', "”": '"', "„": '"'})
+
+
 def derive_artist_track(info: dict) -> tuple[str, str]:
-    """回傳 (演唱者, 曲名)。優先用 YouTube 提供的 artist/track，其次拆解標題。"""
+    """回傳 (演唱者, 曲名)。彎引號統一為直引號，避免同一首歌因撇號不同而產生兩個檔名。"""
+    artist, track = _derive_artist_track(info)
+    return artist.translate(_QUOTES), track.translate(_QUOTES)
+
+
+def _derive_artist_track(info: dict) -> tuple[str, str]:
+    """優先用 YouTube 提供的 artist/track，其次拆解標題。"""
     artist, track = info.get("artist"), info.get("track")
     if artist and track:
         return artist, track
